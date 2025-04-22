@@ -8,12 +8,9 @@ This project is designed to implement a Hugging Face agent using Python. It incl
 huggingface-agent-course
 ├── src
 │   ├── agent
-│   │   ├── __init__.py
-│   │   └── main.py
-│   ├── data
-│   │   └── __init__.py
-│   └── utils
-│       └── __init__.py
+│      ├── __init__.py
+│      └── main.py
+│      
 ├── tests
 │   └── __init__.py
 ├── .env
