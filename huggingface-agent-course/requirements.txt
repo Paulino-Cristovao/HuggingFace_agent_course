@@ -1,0 +1,6 @@
+Flask==2.0.3
+transformers==4.11.3
+torch==1.10.0
+pytest==6.2.5
+mypy==0.910
+ruff==0.0.1
