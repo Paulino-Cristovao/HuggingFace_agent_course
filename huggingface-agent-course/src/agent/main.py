@@ -31,34 +31,34 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Constants
-SYSTEM_PROMPT = """You are an AI assistant that answers questions to the best of your ability. You can use tools to gather information when needed. Always provide clear, concise, and accurate answers.
-
-When using tools, follow this process:
-1. Think about the action you need to take.
-2. Use the tool by specifying a JSON object with the following structure:
-    {
-      "action": "<tool_name>",
-      "action_input": {<input_parameters>}
-    }
-3. Observe the result of the action and decide the next step.
-
-Example tool usage:
-{
-  "action": "get_weather",
-  "action_input": {"location": "New York"}
-}
-
-Always follow this format:
-- Question: The input question you must answer.
-- Thought: Your reasoning about the next action.
-- Action: The JSON object specifying the tool and input.
-- Observation: The result of the action.
-- Repeat Thought/Action/Observation as needed.
-- Conclude with:
-  Thought: I now know the final answer.
-  Final Answer: The final answer to the original question.
-
-Begin your task now. Always use the exact phrase `Final Answer:` when providing a definitive answer."""
+SYSTEM_PROMPT = (
+    "You are an AI assistant that answers questions to the best of your ability. "
+    "You can use tools to gather information when needed. "
+    "Always provide clear, concise, and accurate answers.\n\n"
+    "When using tools, follow this process:\n"
+    "1. Think about the action you need to take.\n"
+    "2. Use the tool by specifying a JSON object with the following structure:\n"
+    "    {\n"
+    "      \"action\": \"<tool_name>\",\n"
+    "      \"action_input\": {<input_parameters>}\n"
+    "    }\n"
+    "3. Observe the result of the action and decide the next step.\n\n"
+    "Example tool usage:\n"
+    "{\n"
+    "  \"action\": \"get_weather\",\n"
+    "  \"action_input\": {\"location\": \"New York\"}\n"
+    "}\n\n"
+    "Always follow this format:\n"
+    "- Question: The input question you must answer.\n"
+    "- Thought: Your reasoning about the next action.\n"
+    "- Action: The JSON object specifying the tool and input.\n"
+    "- Observation: The result of the action.\n"
+    "- Repeat Thought/Action/Observation as needed.\n"
+    "- Conclude with:\n"
+    "  Thought: I now know the final answer.\n"
+    "  Final Answer: The final answer to the original question.\n\n"
+    "Begin your task now. Always use the exact phrase `Final Answer:` when providing a definitive answer."
+)
 
 def retry(
     max_retries: int = 3,
