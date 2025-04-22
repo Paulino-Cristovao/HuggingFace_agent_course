@@ -1,5 +1,5 @@
 [tool.ruff]
-line-length = 200
+line-length = 100
 select = ["E", "F", "W", "I"]
 ignore = ["E501", "F401"]
 exclude = ["tests/*", ".env", ".gitignore"]

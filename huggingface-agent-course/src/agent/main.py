@@ -1,9 +1,21 @@
+"""
+Main entrypoint for the Agent CLI application.
+"""
+
 import os
 import time
 import logging
 from typing import Any, Callable, Optional, TypeVar, cast
-from dotenv import load_dotenv
-from openai import OpenAI, OpenAIError
+
+try:
+    from dotenv import load_dotenv
+except ImportError as e:
+    raise ImportError("Missing dependency 'python-dotenv'. Please install it.") from e
+
+try:
+    from openai import OpenAI, OpenAIError
+except ImportError as e:
+    raise ImportError("Missing dependency 'openai'. Please install it.") from e
 
 T = TypeVar("T")
 
@@ -57,38 +69,51 @@ def retry(
     def deco(fn: Callable[..., T]) -> Callable[..., T]:
         def wrapper(*args: Any, **kwargs: Any) -> T:
             delay = 1.0
-            last_err = None
+            last_err: Exception
             for attempt in range(1, max_retries + 1):
                 try:
                     return fn(*args, **kwargs)
                 except exceptions as err:
-                    last_err = err
+                    last_err = err  # type: ignore
                     if attempt == max_retries:
-                        logger.error(f"Retry {attempt}/{max_retries} failed: {err}")
+                        logger.error("Retry %d/%d failed: %s", attempt, max_retries, err)
                         raise
                     logger.warning(
-                        f"Retry {attempt}/{max_retries} failed: {err!r}, retrying in {delay:.1f}s..."
+                        "Retry %d/%d failed: %r, retrying in %.1fs",
+                        attempt,
+                        max_retries,
+                        err,
+                        delay,
                     )
                     time.sleep(delay)
                     delay *= backoff_factor
+            # Should not be reached
             raise last_err  # type: ignore
         return wrapper
     return deco
 
 class OpenAIClient:
-    def __init__(self, api_key: Optional[str] = None, system_prompt: str = SYSTEM_PROMPT) -> None:
+    """Thin wrapper around the OpenAI v1 client with retry logic and weather tool."""
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        system_prompt: str = SYSTEM_PROMPT,
+    ) -> None:
         """
-        Wraps the v1+ OpenAI client, optionally injecting a custom system prompt.
+        Initializes the OpenAI client and sets the system prompt.
         """
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not self.api_key:
-            raise ValueError("OPENAI_API_KEY must be set in environment or passed explicitly.")
+            raise ValueError(
+                "OPENAI_API_KEY must be set in environment or passed explicitly."
+            )
         self.client = OpenAI(api_key=self.api_key)
         self.system_prompt = system_prompt
 
     @retry(max_retries=3, backoff_factor=2, exceptions=(OpenAIError,))
     def test_connection(self) -> None:
-        """List models to verify network/auth is OK."""
+        """Verify that we can list models (i.e., network and auth are OK)."""
         logger.info("Testing OpenAI API connection…")
         self.client.models.list()
         logger.info("Successfully connected to OpenAI API.")
@@ -101,29 +126,31 @@ class OpenAIClient:
         max_tokens: int = 1024,
     ) -> str:
         """
-        Sends a single-turn chat completion, automatically prepending the system_prompt.
-        The user only needs to pass the raw question.
+        Send one question to the chat endpoint and return the assistant's reply.
         """
         messages = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": question},
         ]
-        logger.info(f"Calling chat.completions.create(model={model!r})…")
-        resp = self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
+        logger.info("Calling chat.completions.create(model=%r)…", model)
+        try:
+            resp = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+        except OpenAIError as e:
+            logger.error("Error during chat completion: %s", e)
+            raise
         return cast(str, resp.choices[0].message.content).strip()
 
     def get_weather(self, location: str) -> str:
         """
         Dummy weather function for testing.
-        Returns a hard‑coded weather string for any input.
+        Returns hard-coded weather for Paris, generic otherwise.
         """
-        logger.info(f"Fetching dummy weather for {location}…")
-        # You could later replace this with a real API call
+        logger.info("Fetching dummy weather for %s…", location)
         if location.lower() == "paris":
             return "Cloudy, 59°F (15°C)"
         return "Sunny, 75°F (24°C)"
@@ -134,21 +161,20 @@ def main() -> None:
     client = OpenAIClient()
     try:
         client.test_connection()
-    except Exception as e:
-        logger.critical(f"Connection test failed: {e}")
+    except OpenAIError as e:
+        logger.critical("Connection test failed: %s", e)
         return
 
-    # Test chat
+    # Chat example
     question = "What's the weather in Paris?"
     try:
         answer = client.chat(question)
         print("Chat says:", answer)
-    except Exception as e:
-        logger.error(f"Failed to get chat response: {e}")
+    except OpenAIError as e:
+        logger.error("Failed to get chat response: %s", e)
 
-    # Test dummy weather
-    print("Dummy get_weather →", client.get_weather("Paris"))
-
+    # Dummy weather test
+    print("Dummy weather for Paris:", client.get_weather("Paris"))
 
 if __name__ == "__main__":
     main()
