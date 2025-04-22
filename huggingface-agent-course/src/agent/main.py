@@ -57,7 +57,7 @@ SYSTEM_PROMPT = (
     "- Conclude with:\n"
     "  Thought: I now know the final answer.\n"
     "  Final Answer: The final answer to the original question.\n\n"
-    "Begin your task now. Always use the exact phrase `Final Answer:` when providing a definitive answer."
+    "Begin your task now. Always use the phrase `Final Answer:` when providing a definitive answer."
 )
 
 def retry(
