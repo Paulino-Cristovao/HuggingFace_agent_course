@@ -1,79 +1,93 @@
 #!/usr/bin/env python3
-
 """
-DuckDuckGo-powered agent using a local Ollama LLM.
+Minimal DuckDuckGo‑powered chat agent that runs on a local Ollama model.
 
-This script initializes a ReAct-style agent that uses a local Ollama LLM
-and DuckDuckGo as a search tool. The agent can answer user queries by
-leveraging the LLM and performing web searches when necessary.
+Updates in this version
+-----------------------
+* **More head‑room** – raises LangChain’s default guard‑rails to
+  `max_iterations=25` and removes the 60‑second overall limit.
+* **English‑only action blocks** – adds a one‑sentence hint so the LLM keeps
+  `Action:` / `Action Input:` lines in English even if the user asks for another
+  language, avoiding the "Agent stopped due to iteration limit" issue.
+
+Language selection is still entirely prompt‑based: just ask in Spanish or add
+“Please answer in Spanish.”
+
+Environment variables
+---------------------
+MODEL   – Ollama model name   (default: ``deepseek-r1:1.5b``)
+TEMP    – generation temperature (default: ``0.2``)
+CTX     – context length (default: ``4096``)
+MAX_ITERS – iteration cap before early‑stop (default: ``25``)
 """
+from __future__ import annotations
 
+import os
+
+from langchain.agents import AgentType, initialize_agent
 from langchain_community.llms import Ollama
 from langchain_community.tools import DuckDuckGoSearchRun
-from langchain.agents import initialize_agent, AgentType
 from rich.console import Console
 from rich.panel import Panel
 
+# ── Configuration ────────────────────────────────────────────────────────────
+MODEL = os.getenv("MODEL", "mistral")
+TEMPERATURE = float(os.getenv("TEMP", "0.2"))
+CONTEXT_LEN = int(os.getenv("CTX", "4096"))
+MAX_ITERS = int(os.getenv("MAX_ITERS", "25"))
 
-def configure_llm() -> Ollama:
-    """
-    Configure and return the local Ollama LLM.
+# ── Helpers ─────────────────────────────────────────────────────────────────
 
-    Returns:
-        Ollama: An instance of the Ollama LLM with specified parameters.
-    """
-    llm = Ollama(model="llama3.2:latest")
-    llm.temperature = 0.2
-    llm.num_ctx = 4096
-    return llm
+def make_llm() -> Ollama:
+    """Return a configured Ollama wrapper."""
+    return Ollama(model=MODEL, temperature=TEMPERATURE, num_ctx=CONTEXT_LEN)
 
 
-def initialize_search_agent(llm: Ollama) -> initialize_agent:
-    """
-    Initialize and return a ReAct-style agent with DuckDuckGo search tool.
-
-    Args:
-        llm (Ollama): The local Ollama LLM instance.
-
-    Returns:
-        initialize_agent: The initialized agent with search capabilities.
-    """
-    search_tool = DuckDuckGoSearchRun()
-    tools = [search_tool]
+def make_agent():
+    """Build a ReAct‑style agent that can use DuckDuckGo."""
+    tools = [DuckDuckGoSearchRun()]
     return initialize_agent(
         tools=tools,
-        llm=llm,
+        llm=make_llm(),
         agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
         verbose=False,
         handle_parsing_errors=True,
+        max_iterations=MAX_ITERS,
+        max_execution_time=None,  # unlimited wall‑clock time
+        early_stopping_method="generate",
     )
 
 
-def main() -> None:
-    """
-    Main function to run the agent.
+# ── Chat loop ────────────────────────────────────────────────────────────────
 
-    This function sets up the console interface, initializes the LLM and agent,
-    and enters a loop to process user queries until interrupted.
-    """
+TOOL_CALL_HINT = (
+    "When you need to call a tool, ALWAYS write the action block in English\n"
+    "(e.g. Action: DuckDuckGoSearchRun). Otherwise, follow the user's language.\n\n"
+)
+
+def chat_loop() -> None:
     console = Console()
-    console.print("\n[bold]Ask me anything! I’ll search DuckDuckGo when needed.[/bold]\n")
+    console.print(
+        "\n[bold cyan]Ask me anything! I’ll use DuckDuckGo when I need to look things up.\n"
+        "If you want the reply in a specific language, just say so in your prompt.[/bold cyan]\n"
+    )
 
-    llm = configure_llm()
-    agent = initialize_search_agent(llm)
+    agent = make_agent()
 
     while True:
         try:
-            user_query = console.input("[bold green]› [/]")
-        except (EOFError, KeyboardInterrupt):
-            console.print("\nBye! 👋")
+            user_query = console.input("[bold green]› [/] ")
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[italic]Bye! 👋[/]")
             break
 
         if not user_query.strip():
             continue
 
-        # Run the agent and display the response
-        answer = agent.run(user_query)
+        # Pre‑pend the English‑only tool‑call hint
+        query = TOOL_CALL_HINT + user_query
+
+        answer = agent.run(query)
         console.print(
             Panel.fit(
                 answer,
@@ -85,5 +99,9 @@ def main() -> None:
         )
 
 
+# ── Entrypoint ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    main()
+    try:
+        chat_loop()
+    except Exception as exc:  # noqa: BLE001
+        Console().print(f"[red]Unhandled error:[/] {exc}")
