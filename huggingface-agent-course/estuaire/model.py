@@ -68,7 +68,7 @@ def load_data(path: str) -> pd.DataFrame:
 
 def train_model(
     df: pd.DataFrame,
-    epochs: int = 200,
+    epochs: int = 100,
     model_path: str = "contrail_model.pth",
     scaler_path: str = "scaler.pkl"
 ) -> None:

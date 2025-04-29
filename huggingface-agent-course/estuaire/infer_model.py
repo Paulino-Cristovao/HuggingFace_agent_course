@@ -123,62 +123,7 @@ def generate_recommendation(probability: float, model: str = "gpt-4") -> str:
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,
-            max_tokens=100            # Environment variables
-            .env
-            .env.*
-            
-            # Model files
-            *.pth
-            *.pkl
-            *.pt
-            *.bin
-            *.onnx
-            
-            # Data directories and files
-            data/
-            dataset/
-            datasets/
-            *.csv
-            *.tsv
-            *.json
-            *.jsonl
-            *.parquet
-            *.npy
-            *.npz
-            
-            # Python cache
-            __pycache__/
-            *.py[cod]
-            *$py.class
-            .ipynb_checkpoints/
-            *.so
-            .Python
-            build/
-            develop-eggs/
-            dist/
-            downloads/
-            eggs/
-            .eggs/
-            lib/
-            lib64/
-            parts/
-            sdist/
-            var/
-            wheels/
-            *.egg-info/
-            .installed.cfg
-            *.egg
-            
-            # IDE specific files
-            .idea/
-            .vscode/
-            *.swp
-            *.swo
-            .DS_Store
-            
-            # Logs
-            logs/
-            *.log
+            max_tokens=100
         )
         return response.choices[0].message.content.strip()
     except OpenAIError as e:
